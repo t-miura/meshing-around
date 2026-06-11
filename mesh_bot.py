@@ -1986,12 +1986,13 @@ def onReceive(packet, interface):
                 break
     # BBS DM MAIL CHECKER
     if bbs_enabled and decoded:
+        via_mqtt = decoded.get('viaMqtt', False)
         msg = bbs_check_dm(message_from_id)
         if msg:
             logger.info(f"System: BBS DM Delivery: {msg[1]} For: {get_name_from_number(message_from_id, 'long', rxNode)}")
             message = "Mail: " + msg[1] + "  From: " + get_name_from_number(msg[2], 'long', rxNode)
             bbs_delete_dm(msg[0], msg[1])
-            send_message(message, channel_number, message_from_id, rxNode)
+            send_message(message, channel_number, message_from_id, rxNode, wantAck_override=via_mqtt)
 
     # CHECK with ban_hammer() if the node is banned
     if str(message_from_id) in my_settings.bbs_ban_list or str(message_from_id) in my_settings.autoBanlist:
@@ -2111,7 +2112,7 @@ def onReceive(packet, interface):
                     logger.info(f"Device:{rxNode} Channel: {channel_number} " + CustomFormatter.green + f"Received DM: " + CustomFormatter.white + f"{message_log_string} " + CustomFormatter.purple +\
                                 "From: " + CustomFormatter.white + f"{get_name_from_number(message_from_id, 'long', rxNode)}")
                     # respond with DM
-                    send_message(auto_response(message_string, snr, rssi, hop, pkiStatus, message_from_id, channel_number, rxNode, isDM), channel_number, message_from_id, rxNode)
+                    send_message(auto_response(message_string, snr, rssi, hop, pkiStatus, message_from_id, channel_number, rxNode, isDM), channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                 else:
                     # DM is useful for games or LLM
                     if games_enabled and ("Direct" in hop or hop_count < my_settings.game_hop_limit):
@@ -2119,7 +2120,7 @@ def onReceive(packet, interface):
                     elif hop_count >= my_settings.game_hop_limit:
                         if games_enabled:
                             logger.warning(f"Device:{rxNode} Ignoring Request to Play Game: {message_log_string} From: {get_name_from_number(message_from_id, 'long', rxNode)} with hop count: {hop}")
-                            send_message(f"Your hop count exceeds safe playable distance at {hop_count} hops", channel_number, message_from_id, rxNode)
+                            send_message(f"Your hop count exceeds safe playable distance at {hop_count} hops", channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                         else:
                             playingGame = False
                     else:
@@ -2129,7 +2130,7 @@ def onReceive(packet, interface):
                         if llm_enabled and my_settings.llmReplyToNonCommands:
                             # respond with LLM
                             llm = handle_llm(message_from_id, channel_number, rxNode, message_string, publicChannel)
-                            send_message(llm, channel_number, message_from_id, rxNode)
+                            send_message(llm, channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                         else:
                             # respond with welcome message on DM
                             logger.warning(f"Device:{rxNode} Ignoring DM: {message_log_string} From: {get_name_from_number(message_from_id, 'long', rxNode)}")
@@ -2137,7 +2138,7 @@ def onReceive(packet, interface):
                             # if seenNodes list is not marked as welcomed send welcome message
                             if not any(node['nodeID'] == message_from_id and node['welcome'] == True for node in seenNodes):
                                 # send welcome message
-                                send_message(welcome_message, channel_number, message_from_id, rxNode)
+                                send_message(welcome_message, channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                                 # mark the node as welcomed
                                 for node in seenNodes:
                                     if node['nodeID'] == message_from_id:
@@ -2145,10 +2146,10 @@ def onReceive(packet, interface):
                             else:
                                 if my_settings.dad_jokes_enabled:
                                     # respond with a dad joke on DM
-                                    send_message(tell_joke(), channel_number, message_from_id, rxNode)
+                                    send_message(tell_joke(), channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                                 else:
                                     # respond with help message on DM
-                                    send_message(help_message, channel_number, message_from_id, rxNode)
+                                    send_message(help_message, channel_number, message_from_id, rxNode, reply_id=packet_id, wantAck_override=via_mqtt)
                     
                     # add message to tts queue
                     if meshagesTTS:

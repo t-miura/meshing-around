@@ -852,12 +852,14 @@ def messageChunker(message):
     except Exception as e:
         logger.warning(f"System: Exception during message chunking: {e} (message length: {len(message)})")
         
-def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_id=None):
+def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_id=None, wantAck_override=None):
     # Send a message to a channel or DM
     interface = globals()[f'interface{nodeInt}']
     # Check if the message is empty
     if message == "" or message is None or len(message) == 0:
         return False
+        
+    eff_wantAck = wantAck_override if wantAck_override is not None else wantAck
 
     try:
         def _send_with_reply(**kwargs):
@@ -873,7 +875,7 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                     # 1 == TEXT_MESSAGE_APP, required so clients render payload as chat text.
                     'portNum': 1,
                     'channelIndex': kwargs.get('channelIndex', ch),
-                    'wantAck': kwargs.get('wantAck', wantAck),
+                    'wantAck': kwargs.get('wantAck', eff_wantAck),
                 }
                 if kwargs.get('destinationId'):
                     data_kwargs['destinationId'] = kwargs.get('destinationId')
@@ -900,7 +902,7 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                 chunkOf = f"{message_list.index(m)+1}/{num_chunks}"
                 if nodeid == 0:
                     # Send to channel
-                    if wantAck:
+                    if eff_wantAck:
                         logger.info(f"Device:{nodeInt} Channel:{ch} " + CustomFormatter.red + f"req.ACK " + f"Chunker{chunkOf} SendingChannel: " + CustomFormatter.white + m.replace('\n', ' '))
                         _send_with_reply(text=m, channelIndex=ch, wantAck=True)
                     else:
@@ -908,7 +910,7 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                         _send_with_reply(text=m, channelIndex=ch)
                 else:
                     # Send to DM
-                    if wantAck:
+                    if eff_wantAck:
                         logger.info(f"Device:{nodeInt} " + CustomFormatter.red + f"req.ACK " + f"Chunker{chunkOf} Sending DM: " + CustomFormatter.white + m.replace('\n', ' ') + CustomFormatter.purple +\
                                  " To: " + CustomFormatter.white + f"{get_name_from_number(nodeid, 'long', nodeInt)}")
                         _send_with_reply(text=m, channelIndex=ch, destinationId=nodeid, wantAck=True)
@@ -928,7 +930,7 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
         else: # message is less than MESSAGE_CHUNK_SIZE characters
             if nodeid == 0:
                 # Send to channel
-                if wantAck:
+                if eff_wantAck:
                     logger.info(f"Device:{nodeInt} Channel:{ch} " + CustomFormatter.red + "req.ACK " + "SendingChannel: " + CustomFormatter.white + message.replace('\n', ' '))
                     _send_with_reply(text=message, channelIndex=ch, wantAck=True)
                 else:
@@ -936,7 +938,7 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                     _send_with_reply(text=message, channelIndex=ch)
             else:
                 # Send to DM
-                if wantAck:
+                if eff_wantAck:
                     logger.info(f"Device:{nodeInt} " + CustomFormatter.red + "req.ACK " + "Sending DM: " + CustomFormatter.white + message.replace('\n', ' ') + CustomFormatter.purple +\
                                  " To: " + CustomFormatter.white + f"{get_name_from_number(nodeid, 'long', nodeInt)}")
                     _send_with_reply(text=message, channelIndex=ch, destinationId=nodeid, wantAck=True)
