@@ -12,8 +12,8 @@ def get_weather_data(api_url, params):
     return response.json()
 
 def get_wx_meteo(lat=0, lon=0, unit=0):
-	# set forcast days 1 or 3
-	forecastDays = 3
+	# set forcast days 1,2 or 3
+	forecastDays = 2
 
 	# Make sure all required weather variables are listed here
 	# The order of variables in hourly or daily is important to assign them correctly below
