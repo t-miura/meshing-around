@@ -862,6 +862,11 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
     eff_wantAck = wantAck_override if wantAck_override is not None else wantAck
 
     try:
+        # In case of a direct reply, add a small delay before the first message
+        # so the sender's node has time to finish its TX state.
+        if reply_id is not None:
+            time.sleep(responseDelay + 1)
+
         def _send_with_reply(**kwargs):
             # For threaded replies, send as DATA payload to match Meshtastic inline-reply behavior. no API call today.
             if reply_id is not None:
@@ -919,6 +924,9 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                                     " To: " + CustomFormatter.white + f"{get_name_from_number(nodeid, 'long', nodeInt)}")
                         _send_with_reply(text=m, channelIndex=ch, destinationId=nodeid)
 
+                # Only use reply_id for the first chunk to prevent duplicate implicit ACKs
+                reply_id = None
+
                 # Throttle the message sending to prevent spamming the device
                 if (message_list.index(m)+1) % 4 == 0:
                     time.sleep(responseDelay + 1)
@@ -926,7 +934,10 @@ def send_message(message, ch, nodeid=0, nodeInt=1, bypassChuncking=False, reply_
                         logger.warning(f"System: throttling rate Interface{nodeInt} on {chunkOf}")
 
                 # wait an amount of time between sending each split message
-                time.sleep(splitDelay)
+                eff_splitDelay = splitDelay
+                if wantAck_override is True and eff_splitDelay < 2.5:
+                    eff_splitDelay = 2.5
+                time.sleep(eff_splitDelay)
         else: # message is less than MESSAGE_CHUNK_SIZE characters
             if nodeid == 0:
                 # Send to channel
